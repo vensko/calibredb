@@ -9,7 +9,7 @@ class File extends Model
     protected $table = 'data';
 
     protected $casts = [
-        'size' => 'integer',
+        'uncompressed_size' => 'integer',
     ];
 
     public function book()

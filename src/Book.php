@@ -58,4 +58,52 @@ class Book extends Model
     {
         return $this->hasOne(Comment::class, 'book');
     }
+
+    public static function getColumns($bookId = null)
+    {
+        $query = Column::pluck('id')->map(function (int $id) use ($bookId) {
+            return 'SELECT'
+                .' book, datatype, label, value '
+                .' FROM custom_column_'.$id
+	            .' LEFT JOIN custom_columns ON custom_columns.id='.$id
+	            .($bookId ? ' WHERE book IN ('.implode(',', (array)$bookId).')' : '');
+        })->implode(' UNION ');
+
+        $result = app('db')
+            ->connection(app('db')
+            ->getDefaultConnection())
+            ->select($query);
+
+        $result = collect($result)
+            ->groupBy('book')
+            ->map(function ($item) {
+                return $item->mapWithKeys(function ($item) {
+                    return [
+                        $item->label => static::castCustomColumnValue($item),
+                    ];
+                });
+            })
+            ->toArray();
+
+        return $result;
+    }
+
+    protected static function castCustomColumnValue($row)
+    {
+        $value = $row->value;
+
+        switch ($row->datatype) {
+            case 'int':
+                $value = (int)$value;
+                break;
+            case 'bool':
+                $value = (bool)$value;
+                break;
+            case 'composite':
+                $value = json_decode($value);
+                break;
+        }
+
+        return $value;
+    }
 }
